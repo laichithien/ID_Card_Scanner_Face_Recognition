@@ -9,12 +9,9 @@ import torchvision
 
 import cv2
 import numpy as np
-# from iresnet import iresnet100
 from modules.face_recognition.iresnet import iresnet100
 from modules.face_recognition.utils import Utils
 import math
-
-
 
 class FaceRecognition:
     def __init__(self,
@@ -41,20 +38,18 @@ class FaceRecognition:
     def draw_bbox(self, img, box, text):
         color = [255, 255, 0]
         score = box[-1]
-        box = [math.floor(value.item()) for value in box]
-        
         box = box[:-1]
         start_point = (box[:2])
         end_point = (box[2:])
-        print(start_point)
-        print(end_point)
+
         cv2.rectangle(img, box[:2], box[2:], color, 2)
         cv2.putText(img, text, (box[0], box[1] - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.75, [255, 255, 0], thickness=2)
         return img
 
     def draw_detect_result(self, img_or, detected, name="Unknown"):
         img = img_or.copy()
-        for i, (x0, y0, x1, y1, score) in enumerate(detected[:, 0:5]):
+
+        for i, (x0, y0, x1, y1, score) in enumerate(detected):
             img = self.draw_bbox(img, [x0, y0, x1, y1, score], 'face')
         return img
     
@@ -74,7 +69,6 @@ class FaceRecognition:
         inp = np.array(inp[inname[0]], dtype=np.float32)
 
         if self.providers == ['CUDAExecutionProvider', 'CPUExecutionProvider']:
-            
             X_ortvalue = ort.OrtValue.ortvalue_from_numpy(inp, 'cuda', 0)
             Y_ortvalue = ort.OrtValue.ortvalue_from_shape_and_type([1,25200,16], np.float32, 'cuda', 0)  # Change the shape to the actual shape of the output being bound
             io_binding = session.io_binding()
@@ -93,15 +87,26 @@ class FaceRecognition:
             outputs = session.run([output_name], input_data)[0]
 
         output = torch.from_numpy(outputs)
-        # print(output.shape)
+
         detected = Utils.non_max_suppression_face(output, self.conf_thres, self.iou_thres) # Single face detection
-        detected = detected[0]        # Get the first face 
+
+        detected = detected[0]    
         if detected.nelement() == 0:
             return None
         else:
-            return detected
+            bboxes = []
+            for i, (x0, y0, x1, y1, score) in enumerate(detected[:,0:5]):
+                box = np.array([x0, y0, x1, y1])
+                box -= np.array(dwdh*2)
+                box /= ratio
+                box = box.round().astype(np.int32).tolist()
+                score = round(float(score), 3)
+                color = [255, 255, 0]
+                box.append(score)
+                bboxes.append(box)
+            return bboxes
     
-    def get_face_feature(self, img, ratio, dwdh, detected):
+    def get_face_features(self, img, detected):
         """
         This method take original image and bounding boxes as inputs.
         Returning the features extracted from those bounding boxes
@@ -110,25 +115,11 @@ class FaceRecognition:
         [feature3]]
         """
         features = []
-        for i, (x0, y0, x1, y1, score) in enumerate(detected[:, 0:5]):
-            box = np.array([x0, y0, x1, y1])
-            box -= np.array(dwdh*2)
-            box /= ratio
-            box = box.round().astype(np.int32).tolist()
-            score = round(float(score), 3)
-            cropped_box = img[box[1]:box[3], box[0]:box[2]]
-            if(cropped_box.shape[0] == 0 or cropped_box.shape[1] == 0):
-                continue
-            if(type(cropped_box) == type(None)):
-                pass
-            else:
-                cropped_box = cv2.resize(cropped_box, (112, 112))
-            cropped_box = np.transpose(cropped_box, (2, 0, 1))
-            cropped_box = torch.from_numpy(cropped_box).unsqueeze(0).float()
-            cropped_box.div_(255).sub_(0.5).div_(0.5)
-            
-            session = self.recog_session
 
+        cropped_boxes = Utils.crop_image_feat_extraction(img, detected)
+
+        for cropped_box in cropped_boxes:
+            session = self.recog_session
             outname = [i.name for i in session.get_outputs()]
             inname = [i.name for i in session.get_inputs()]
 
@@ -138,7 +129,6 @@ class FaceRecognition:
 
             feature = torch.from_numpy(outputs)
             features.append(feature)
-            
         return features
 
     def recognize(self, img, ratio, dwdh, detected):

@@ -100,7 +100,7 @@ class Utils:
             #    i = i[:max_det]
             if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
                 # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
-                iou = self.box_iou(boxes[i], boxes) > iou_thres  # iou matrix
+                iou = Utils.box_iou(boxes[i], boxes) > iou_thres  # iou matrix
                 
                 weights = iou * scores[None]  # box weights
                 x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
@@ -110,7 +110,7 @@ class Utils:
             output[xi] = x[i]
             if (time.time() - t) > time_limit:
                 break  # time limit exceeded
-
+        print(output)
         return output
     @staticmethod
     def cosine_similarity(feat, tmp):
@@ -130,5 +130,31 @@ class Utils:
         y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x
         y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
         return y
+    
+    @staticmethod
+    def crop_image(image, bbox):
+        print(bbox)
+        box = bbox[:-1]
+        score = bbox[-1]
+        cropped_box = image[box[1]: box[3], box[0]: box[2]]
+        return cropped_box
+
+    @staticmethod
+    def crop_image_feat_extraction(image, bboxes):
+        cropped_boxes = []
+        for bbox in bboxes:
+            cropped_box=Utils.crop_image(image, bbox)
+            if(cropped_box.shape[0]==0 or cropped_box.shape[1]==0):
+                continue
+            if(type(cropped_box) == type(None)):
+                pass
+            else:
+                cropped_box= cv2.resize(cropped_box, (112, 112))
+            cropped_box = np.transpose(cropped_box, (2, 0, 1))
+            cropped_box = torch.from_numpy(cropped_box).unsqueeze(0).float()
+            cropped_box.div_(255).sub_(0.5).div_(0.5)
+
+            cropped_boxes.append(cropped_box)
+        return cropped_boxes
     
 

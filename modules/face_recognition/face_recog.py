@@ -119,8 +119,9 @@ class FaceRecognition:
         
         t2 = time.time()
         output = torch.from_numpy(outputs)
-
+        print(output)
         out =self.non_max_suppression_face(output, self.conf_thres, self.iou_thres)[0]
+        print(out)
         # print(out)
         if out.nelement() == 0:
             return "None", "None", image_or
@@ -128,6 +129,7 @@ class FaceRecognition:
             if add_new_face==False:
             # print(out)
                 name, similarity, img = self.result(image_or,ratio, dwdh, out)
+                # print(out)
                 return name, similarity, img
             else:
                 feat = self.result(image_or, ratio, dwdh, out, True)
@@ -286,10 +288,11 @@ class FaceRecognition:
             output[xi] = x[i]
             if (time.time() - t) > time_limit:
                 break  # time limit exceeded
-
+        print(output)
         return output
     
     def result(self,img,ratio, dwdh, out, new=False, visualize=True):
+        # print(out)
         names= self.class_name()
         colors = {name:[random.randint(0, 255) for _ in range(3)] for i,name in enumerate(names)}  
         for i,(x0,y0,x1,y1, score) in enumerate(out[:,0:5]):
@@ -359,6 +362,8 @@ class FaceRecognition:
                 if visualize:
                     # print("Visualizing...")
                     cv2.rectangle(img,box[:2],box[2:],color,2)
+                    print(box[:2])
+                    print(box[2:])
                     cv2.putText(img,name+str(final_distance),(box[0], box[1] - 2),cv2.FONT_HERSHEY_SIMPLEX,0.75,[225, 255, 255],thickness=2) 
                     # print(img.shape)
                 # result = None
