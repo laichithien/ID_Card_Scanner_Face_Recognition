@@ -91,4 +91,3 @@ dependencies:
       - opencv-python==4.8.1.78
       - packaging==23.2
       - protobuf==4.24.4
-prefix: /Users/chithienlai/anaconda3/envs/CVnApp

@@ -106,7 +106,7 @@ class FaceRecognition:
                 bboxes.append(box)
             return bboxes
     
-    def get_face_features(self, img, detected):
+    def get_face_features(self, img, bboxes):
         """
         This method take original image and bounding boxes as inputs.
         Returning the features extracted from those bounding boxes
@@ -116,7 +116,7 @@ class FaceRecognition:
         """
         features = []
 
-        cropped_boxes = Utils.crop_image_feat_extraction(img, detected)
+        cropped_boxes = Utils.crop_image_feat_extraction(img, bboxes)
 
         for cropped_box in cropped_boxes:
             session = self.recog_session
@@ -131,7 +131,7 @@ class FaceRecognition:
             features.append(feature)
         return features
 
-    def recognize(self, img, ratio, dwdh, detected):
+    def recognize(self, img, bboxes):
         """
         This method take original image and bounding boxes as inputs. Returning 
         list of name and final_cosine:
@@ -139,10 +139,10 @@ class FaceRecognition:
         [name2, final_cosine2],
         [name3, final_cosine3]]
         """
-        features = self.get_face_feature(img, ratio, dwdh, detected)
+        features = self.get_face_features(img, bboxes)
         results = []
         ts = os.listdir(f'{self.database_tensor}')
-        lc = 0
+        # lc = 0
         lcc = 0
         w = []
         for feat in features:
@@ -161,7 +161,7 @@ class FaceRecognition:
             results.append(feat_name)
         return results
         
-    def add_face(self, img, ratio, dwdh, detected, name):
-        features = self.get_face_feature(img, ratio, dwdh, detected)
+    def add_face(self, img, bboxes, name):
+        features = self.get_face_features(img, bboxes)
         np.save(f'{self.database_tensor}/{name}.npy', features[0])
         return True
